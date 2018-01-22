@@ -2,12 +2,14 @@
 
 namespace JsonRPC\Exception;
 
+use Exception;
+
 /**
- * Class ConnectionFailureException
+ * Class AccessDeniedException
  *
  * @package JsonRPC\Exception
  * @author  Frederic Guillot
  */
-class ConnectionFailureException extends RpcCallFailedException
+class RpcCallFailedException extends Exception
 {
 }

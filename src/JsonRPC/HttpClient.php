@@ -271,6 +271,7 @@ class HttpClient
         if (! is_resource($stream)) {
             throw new ConnectionFailureException('Unable to establish a connection');
         }
+        stream_set_blocking($stream, false);
 
         $metadata = stream_get_meta_data($stream);
         $headers = $metadata['wrapper_data'];

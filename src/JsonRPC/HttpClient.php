@@ -267,26 +267,23 @@ class HttpClient
             call_user_func_array($this->beforeRequest, array($this, $payload, $headers));
         }
 
-        $stream = fopen(trim($this->url), 'r', false, $this->buildContext($payload, $headers));
+        $curlHandler = curl_init(trim($this->url));
 
-        if (! is_resource($stream)) {
-            throw new ConnectionFailureException('Unable to establish a connection');
+        $this->configureCurl($payload, $headers, $curlHandler);
+
+        $response = curl_exec($curlHandler);
+
+        if ($error = curl_error($curlHandler) !== "") {
+            throw new ConnectionFailureException('CurlError: ' . $error);
         }
-        stream_set_blocking($stream, false);
 
-        $content = [];
-        do {
-            $content[] = stream_get_contents($stream);
-            $metadata = stream_get_meta_data($stream);
+        $header_size = curl_getinfo($curlHandler,CURLINFO_HEADER_SIZE);
+        $headers = substr($response, 0, $header_size);
+        $headers = array_map("trim", explode("\n", $headers));
 
-            //sleep a little while to transfer new data into stream
-            usleep(3000);
-        } while (false === $metadata['eof']);
+        $body = json_decode(substr($response, $header_size), true);
 
-        $headers = $metadata['wrapper_data'];
-        $response = json_decode(implode('', $content), true);
-        
-        fclose($stream);
+        curl_close($curlHandler);
 
         if ($this->debug) {
             error_log('==> Request: '.PHP_EOL.(is_string($payload) ? $payload : json_encode($payload, JSON_PRETTY_PRINT)));
@@ -297,57 +294,9 @@ class HttpClient
         $this->handleExceptions($headers);
         $this->parseCookies($headers);
 
-        return $response;
+        return $body;
     }
 
-    /**
-     * Prepare stream context
-     *
-     * @access private
-     * @param  string   $payload
-     * @param  string[] $headers
-     * @return resource
-     */
-    private function buildContext($payload, array $headers = array())
-    {
-        $headers = array_merge($this->headers, $headers);
-
-        if (! empty($this->username) && ! empty($this->password)) {
-            $headers[] = 'Authorization: Basic '.base64_encode($this->username.':'.$this->password);
-        }
-
-        if (! empty($this->cookies)){
-            $cookies = array();
-
-            foreach ($this->cookies as $key => $value) {
-                $cookies[] = $key.'='.$value;
-            }
-
-            $headers[] = 'Cookie: '.implode('; ', $cookies);
-        }
-
-        $options = array(
-            'http' => array(
-                'method' => 'POST',
-                'protocol_version' => 1.1,
-                'timeout' => $this->timeout,
-                'max_redirects' => 2,
-                'header' => implode("\r\n", $headers),
-                'content' => $payload,
-                'ignore_errors' => true,
-            ),
-            'ssl' => array(
-                'verify_peer' => $this->verifySslCertificate,
-                'verify_peer_name' => $this->verifySslCertificate,
-            )
-        );
-
-        if ($this->sslLocalCert !== null) {
-            $options['ssl']['local_cert'] = $this->sslLocalCert;
-        }
-
-        return stream_context_create($options);
-    }
 
     /**
      * Parse cookies from response
@@ -400,5 +349,35 @@ class HttpClient
                 }
             }
         }
+    }
+
+    /**
+     * @param string $payload
+     * @param array $headers
+     * @param $curlHandler
+     */
+    private function configureCurl($payload, array $headers, $curlHandler)
+    {
+        if (!empty($this->username) && !empty($this->password)) {
+            curl_setopt($curlHandler, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+            curl_setopt($curlHandler, CURLOPT_USERNAME, $this->username);
+            curl_setopt($curlHandler, CURLOPT_USERPWD, $this->password);
+        }
+
+        if (!empty($this->cookies)) {
+            $cookies = array();
+
+            foreach ($this->cookies as $key => $value) {
+                $cookies[] = $key . '=' . $value;
+            }
+
+            curl_setopt($curlHandler, CURLOPT_COOKIE, implode('; ', $cookies));
+        }
+
+        curl_setopt($curlHandler, CURLOPT_POST, 1);
+        curl_setopt($curlHandler, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($curlHandler, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($curlHandler, CURLOPT_HEADER, 1);
+        curl_setopt($curlHandler, CURLOPT_HTTPHEADER, $headers);
     }
 }

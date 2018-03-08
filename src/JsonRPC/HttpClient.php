@@ -379,5 +379,7 @@ class HttpClient
         curl_setopt($curlHandler, CURLOPT_POSTFIELDS, $payload);
         curl_setopt($curlHandler, CURLOPT_HEADER, 1);
         curl_setopt($curlHandler, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($curlHandler, CURLOPT_TIMEOUT, $this->timeout);
+        curl_setopt($curlHandler, CURLOPT_MAXREDIRS, 2);
     }
 }

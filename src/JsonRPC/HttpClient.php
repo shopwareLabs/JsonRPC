@@ -272,10 +272,19 @@ class HttpClient
         if (! is_resource($stream)) {
             throw new ConnectionFailureException('Unable to establish a connection');
         }
+        stream_set_blocking($stream, false);
 
-        $metadata = stream_get_meta_data($stream);
+        $content = [];
+        do {
+            $content[] = stream_get_contents($stream);
+            $metadata = stream_get_meta_data($stream);
+
+            //sleep a little while to transfer new data into stream
+            usleep(3000);
+        } while (false === $metadata['eof']);
+
         $headers = $metadata['wrapper_data'];
-        $response = json_decode(stream_get_contents($stream), true);
+        $response = json_decode(implode('', $content), true);
         
         fclose($stream);
 

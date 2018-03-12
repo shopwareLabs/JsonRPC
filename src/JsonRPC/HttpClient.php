@@ -263,6 +263,8 @@ class HttpClient
      */
     public function execute($payload, array $headers = array())
     {
+        $headers = array_merge($this->headers, $headers);
+        
         if (is_callable($this->beforeRequest)) {
             call_user_func_array($this->beforeRequest, array($this, $payload, $headers));
         }

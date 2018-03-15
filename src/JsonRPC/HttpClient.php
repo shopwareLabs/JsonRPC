@@ -275,7 +275,7 @@ class HttpClient
 
         $response = curl_exec($curlHandler);
 
-        if ($error = curl_error($curlHandler) !== "") {
+        if (($error = curl_error($curlHandler)) !== "") {
             throw new ConnectionFailureException('CurlError: ' . $error);
         }
 
